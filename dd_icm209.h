@@ -1,11 +1,5 @@
-/*
-
-A C++ interface to the ICM-20948
-
-*/
-
-#ifndef _ICM_20948_H_
-#define _ICM_20948_H_
+#ifndef DD_ICM209_H
+#define DD_ICM209_H
 
 #include "util/invensense/ICM_20948_C.h" // The C backbone. ICM_20948_USE_DMP is defined in here.
 #include "util/invensense/AK09916_REGISTERS.h"
@@ -62,4 +56,4 @@ ICM_20948_Status_e icm209_readDMPdataFromFIFO(icm_20948_DMP_data_t *data);
 ICM_20948_Status_e icm209_initialize_dmp(void);
 ICM_20948_Status_e icm209_enableDMP( bool enable);
 ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev);
-#endif /* _ICM_20948_H_ */
+#endif /* DD_ICM209_H */

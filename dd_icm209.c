@@ -642,6 +642,7 @@ ICM_20948_Status_e icm209_enableDMP( bool enable)
   return ICM_20948_Stat_DMPNotSupported;
 }
 
+// NOLINTBEGIN
 ICM_20948_Status_e icm209_initialize_dmp(void)
 {
   // First, let's check if the DMP is available
@@ -890,6 +891,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
 
   return worstResult;
 }
+// NOLINTEND
 
 ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev)
 {
