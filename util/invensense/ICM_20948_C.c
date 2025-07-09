@@ -8,16 +8,7 @@
 */
 #if defined(ICM_20948_USE_DMP) // Only include the 14301 Bytes of DMP if ICM_20948_USE_DMP is defined
 
-#if defined(ARDUINO_ARCH_MBED) // ARDUINO_ARCH_MBED (APOLLO3 v2) does not support or require pgmspace.h / PROGMEM
 const uint8_t dmp3_image[] = {
-#elif (defined(__AVR__) || defined(__arm__) || defined(__ARDUINO_ARC__) || defined(ESP8266)) && !defined(__linux__) // Store the DMP firmware in PROGMEM on older AVR (ATmega) platforms
-#define ICM_20948_USE_PROGMEM_FOR_DMP
-#include <avr/pgmspace.h>
-const uint8_t dmp3_image[] PROGMEM = {
-#else
-const uint8_t dmp3_image[] = {
-#endif
-
 #include "icm20948_img.dmp3a.h"
 };
 #endif
@@ -2018,7 +2009,7 @@ ICM_20948_Status_e inv_icm20948_read_dmp_data(ICM_20948_Device_t *pdev, icm_2094
   {
     aShort |= ((uint16_t)fifoBytes[i]) << (8 - (i * 8)); // MSB first
   }
-  data->header = aShort;                    // Store the header in data->header
+   data->header = aShort;                    // Store the header in data->header
   fifo_count -= icm_20948_DMP_Header_Bytes; // Decrement the count
 
   // If the header indicates a header2 is present then read that now

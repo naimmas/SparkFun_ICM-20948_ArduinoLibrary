@@ -31,12 +31,11 @@ extern int memcmp(const void *, const void *, size_t); // Avoid compiler warning
 
 // Define if the DMP will be supported
 // Note: you must have 14290/14301 Bytes of program memory available to store the DMP firmware!
-//#define ICM_20948_USE_DMP // Uncomment this line to enable DMP support. You can of course use ICM_20948_USE_DMP as a compiler flag too
+#define ICM_20948_USE_DMP // Uncomment this line to enable DMP support. You can of course use ICM_20948_USE_DMP as a compiler flag too
 
 // There are two versions of the InvenSense DMP firmware for the ICM20948 - with slightly different sizes
 #define DMP_CODE_SIZE 14301 /* eMD-SmartMotion-ICM20948-1.1.0-MP */
-//#define DMP_CODE_SIZE 14290 /* ICM20948_eMD_nucleo_1.0 */
-
+  // #define DMP_CODE_SIZE 14290 /* ICM20948_eMD_nucleo_1.0 */
 
 #define ICM_20948_I2C_ADDR_AD0 0x68 // Or 0x69 when AD0 is high
 #define ICM_20948_I2C_ADDR_AD1 0x69 //
@@ -219,7 +218,7 @@ extern int memcmp(const void *, const void *, size_t); // Avoid compiler warning
   ICM_20948_Status_e ICM_20948_int_enable(ICM_20948_Device_t *pdev, ICM_20948_INT_enable_t *write, ICM_20948_INT_enable_t *read);    // Write and or read the interrupt enable information. If non-null the write operation occurs before the read, so as to verify that the write was successful
 
   // WoM Enable Logic configuration
-  ICM_20948_Status_e ICM_20948_wom_logic(ICM_20948_Device_t *pdev, ICM_20948_ACCEL_INTEL_CTRL_t *write, ICM_20948_ACCEL_INTEL_CTRL_t *read); //Enable or disable WoM Logic
+  ICM_20948_Status_e ICM_20948_wom_logic(ICM_20948_Device_t *pdev, ICM_20948_ACCEL_INTEL_CTRL_t *write, ICM_20948_ACCEL_INTEL_CTRL_t *read); // Enable or disable WoM Logic
 
   // WoM Threshold Level Configuration
   ICM_20948_Status_e ICM_20948_wom_threshold(ICM_20948_Device_t *pdev, ICM_20948_ACCEL_WOM_THR_t *write, ICM_20948_ACCEL_WOM_THR_t *read); // Write and or read the Wake on Motion threshold. If non-null the write operation occurs before the read, so as to verify that the write was successful
@@ -256,27 +255,27 @@ extern int memcmp(const void *, const void *, size_t); // Avoid compiler warning
   ICM_20948_Status_e ICM_20948_set_dmp_start_address(ICM_20948_Device_t *pdev, unsigned short address);
 
   /** @brief Loads the DMP firmware from SRAM
-	* @param[in] data  pointer where the image
-	* @param[in] size  size if the image
-	* @param[in] load_addr  address to loading the image
-	* @return 0 in case of success, -1 for any error
-	*/
+   * @param[in] data  pointer where the image
+   * @param[in] size  size if the image
+   * @param[in] load_addr  address to loading the image
+   * @return 0 in case of success, -1 for any error
+   */
   ICM_20948_Status_e inv_icm20948_firmware_load(ICM_20948_Device_t *pdev, const unsigned char *data, unsigned short size, unsigned short load_addr);
   /**
-	*  @brief       Write data to a register in DMP memory
-	*  @param[in]   DMP memory address
-	*  @param[in]   number of byte to be written
-	*  @param[out]  output data from the register
-	*  @return     0 if successful.
-	*/
+   *  @brief       Write data to a register in DMP memory
+   *  @param[in]   DMP memory address
+   *  @param[in]   number of byte to be written
+   *  @param[out]  output data from the register
+   *  @return     0 if successful.
+   */
   ICM_20948_Status_e inv_icm20948_write_mems(ICM_20948_Device_t *pdev, unsigned short reg, unsigned int length, const unsigned char *data);
   /**
-	*  @brief      Read data from a register in DMP memory
-	*  @param[in]  DMP memory address
-	*  @param[in]  number of byte to be read
-	*  @param[in]  input data from the register
-	*  @return     0 if successful.
-	*/
+   *  @brief      Read data from a register in DMP memory
+   *  @param[in]  DMP memory address
+   *  @param[in]  number of byte to be read
+   *  @param[in]  input data from the register
+   *  @return     0 if successful.
+   */
   ICM_20948_Status_e inv_icm20948_read_mems(ICM_20948_Device_t *pdev, unsigned short reg, unsigned int length, unsigned char *data);
 
   ICM_20948_Status_e inv_icm20948_set_dmp_sensor_period(ICM_20948_Device_t *pdev, enum DMP_ODR_Registers odr_reg, uint16_t interval);
@@ -291,7 +290,7 @@ extern int memcmp(const void *, const void *, size_t); // Avoid compiler warning
   // ToDo:
 
   /*
-	Want to access magnetometer throught the I2C master interface...
+  Want to access magnetometer throught the I2C master interface...
 
   // If using the I2C master to read from the magnetometer
   // Enable the I2C master to talk to the magnetometer through the ICM 20948
