@@ -136,16 +136,6 @@ ICM_20948_Status_e check_id(ICM_20948_Device_t* _device)
   return retval;
 }
 
-bool is_data_ready(ICM_20948_Device_t* _device)
-{
-  ICM_20948_Status_e status = ICM_20948_data_ready(_device);
-  if (status == ICM_20948_Stat_Ok)
-  {
-    return true;
-  }
-  return false;
-}
-
 uint8_t getWhoAmI(ICM_20948_Device_t* _device)
 {
   uint8_t retval = 0x00;

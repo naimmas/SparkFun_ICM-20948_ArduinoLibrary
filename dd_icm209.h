@@ -1,15 +1,14 @@
 #ifndef DD_ICM209_H
 #define DD_ICM209_H
 
-#include "util/invensense/AK09916_REGISTERS.h"
 #include "util/invensense/ICM_20948_C.h" // The C backbone. ICM_20948_USE_DMP is defined in here.
 
 typedef struct
 {
-    icm_20948_DMP_data_t dmp_data;
-
+  icm_20948_DMP_data_t dmp_data;
+  ICM_20948_AGMT_t   agmt;
 } icm209_dev_t;
-ICM_20948_AGMT_t   icm209_getAGMT(void);
+ICM_20948_Status_e icm209_getAGMT(void);
 float              icm209_get_temp(void);
 float              icm209_get_mag(uint8_t axis);
 float              icm209_get_gyro(uint8_t axis);
@@ -62,7 +61,9 @@ ICM_20948_Status_e icm209_enableDMPSensorInt(enum inv_icm20948_sensor sensor,
 ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg,
                                         int                    interval);
 ICM_20948_Status_e icm209_readDMPdataFromFIFO(icm_20948_DMP_data_t* data);
+bool icm209_is_data_ready(void);
 ICM_20948_Status_e icm209_initialize_dmp(void);
 ICM_20948_Status_e icm209_enableDMP(bool enable);
+ICM_20948_Status_e icm209_init_cpass(void);
 ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev);
 #endif /* DD_ICM209_H */

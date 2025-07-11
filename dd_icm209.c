@@ -20,7 +20,6 @@ typedef struct st_driver
     icm209_dev_t       user_dev;
     ICM_20948_Device_t internal_dev;
     ICM_20948_Serif_t  serif_hndlr;
-    ICM_20948_AGMT_t   agmt;
 } driver_t;
 
 static driver_t g_driver = { 0x00 };
@@ -76,36 +75,34 @@ static ICM_20948_Status_e read_register(uint8_t p_reg_addr, uint8_t* ppt_data,
 }
 
 // Data Getters
-ICM_20948_AGMT_t icm209_getAGMT(void)
+ICM_20948_Status_e icm209_getAGMT(void)
 {
-    ICM_20948_get_agmt(&g_driver.internal_dev, &g_driver.agmt);
-
-    return g_driver.agmt;
+    return ICM_20948_get_agmt(&g_driver.internal_dev, &g_driver.user_dev.agmt);
 }
 float icm209_get_temp(void)
 {
-    return getTempC(g_driver.agmt.tmp.val);
+    return getTempC(g_driver.user_dev.agmt.tmp.val);
 }
 float icm209_get_mag(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.agmt.mag.axes.x,
-                           g_driver.agmt.mag.axes.y,
-                           g_driver.agmt.mag.axes.z };
+    int16_t axis_val[] = { g_driver.user_dev.agmt.mag.axes.x,
+                           g_driver.user_dev.agmt.mag.axes.y,
+                           g_driver.user_dev.agmt.mag.axes.z };
     return getMagUT(axis_val[axis]);
 }
 float icm209_get_gyro(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.agmt.gyr.axes.x,
-                           g_driver.agmt.gyr.axes.y,
-                           g_driver.agmt.gyr.axes.z };
-    return getGyrDPS(&g_driver.agmt, axis_val[axis]);
+    int16_t axis_val[] = { g_driver.user_dev.agmt.gyr.axes.x,
+                           g_driver.user_dev.agmt.gyr.axes.y,
+                           g_driver.user_dev.agmt.gyr.axes.z };
+    return getGyrDPS(&g_driver.user_dev.agmt, axis_val[axis]);
 }
 float icm209_get_acc(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.agmt.acc.axes.x,
-                           g_driver.agmt.acc.axes.y,
-                           g_driver.agmt.acc.axes.z };
-    return getAccMG(&g_driver.agmt, axis_val[axis]);
+    int16_t axis_val[] = { g_driver.user_dev.agmt.acc.axes.x,
+                           g_driver.user_dev.agmt.acc.axes.y,
+                           g_driver.user_dev.agmt.acc.axes.z };
+    return getAccMG(&g_driver.user_dev.agmt, axis_val[axis]);
 }
 
 // Gyro Bias
@@ -307,6 +304,10 @@ ICM_20948_Status_e icm209_setDLPFcfg(uint8_t            sensor_id_bm,
                              (ICM_20948_InternalSensorID_bm)sensor_id_bm,
                              cfg);
     return retval;
+}
+ICM_20948_Status_e icm209_init_cpass(void)
+{
+    return startupMagnetometer(&g_driver.internal_dev, false);
 }
 ICM_20948_Status_e icm209_enable_low_pass_filter(uint8_t sensor_id_bm,
                                                  bool    enable)
@@ -1393,6 +1394,15 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
 }
 // NOLINTEND
 
+bool icm209_is_data_ready(void)
+{
+  ICM_20948_Status_e status = ICM_20948_data_ready(&g_driver.internal_dev);
+  if (status == ICM_20948_Stat_Ok)
+  {
+    return true;
+  }
+  return false;
+}
 ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev)
 {
 
