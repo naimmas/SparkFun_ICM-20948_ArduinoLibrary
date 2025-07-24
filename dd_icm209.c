@@ -20,6 +20,7 @@ typedef struct st_driver
     icm209_dev_t       user_dev;
     ICM_20948_Device_t internal_dev;
     ICM_20948_Serif_t  serif_hndlr;
+    ICM_20948_AGMT_t   internal_agmt;
 } driver_t;
 
 static driver_t g_driver = { 0x00 };
@@ -33,8 +34,8 @@ static driver_t g_driver = { 0x00 };
  * @param[in] p_reg_addr The register address to write to in the sensor.
  * @return Result of the execution status.
  */
-static ICM_20948_Status_e write_register(uint8_t p_reg_addr, uint8_t* ppt_data,
-                                         uint32_t p_data_sz, void* user)
+static ICM_20948_Status_e write_register(uint8_t p_reg_addr, uint8_t* ppt_data, uint32_t p_data_sz,
+                                         void* user)
 {
     response_status_t api_ret_val = RET_OK;
     (void)user;
@@ -58,8 +59,8 @@ static ICM_20948_Status_e write_register(uint8_t p_reg_addr, uint8_t* ppt_data,
  * @param[in] p_reg_addr The register address to read from in the sensor.
  * @return Result of the execution status.
  */
-static ICM_20948_Status_e read_register(uint8_t p_reg_addr, uint8_t* ppt_data,
-                                        uint32_t p_data_sz, void* user)
+static ICM_20948_Status_e read_register(uint8_t p_reg_addr, uint8_t* ppt_data, uint32_t p_data_sz,
+                                        void* user)
 {
     response_status_t api_ret_val = RET_OK;
     (void)user;
@@ -75,53 +76,66 @@ static ICM_20948_Status_e read_register(uint8_t p_reg_addr, uint8_t* ppt_data,
 }
 
 // Data Getters
-ICM_20948_Status_e icm209_getAGMT(void)
+ICM_20948_Status_e icm209_readAGMT(void)
 {
-    return ICM_20948_get_agmt(&g_driver.internal_dev, &g_driver.user_dev.agmt);
+    ICM_20948_Status_e retval = ICM_20948_Stat_Ok;
+    retval                    = ICM_20948_get_agmt(&g_driver.internal_dev, &g_driver.internal_agmt);
+    if (retval == ICM_20948_Stat_Ok)
+    {
+        g_driver.user_dev.agmt.temp  = g_driver.internal_agmt.tmp.val;
+        g_driver.user_dev.agmt.acc.x = g_driver.internal_agmt.acc.axes.x;
+        g_driver.user_dev.agmt.acc.y = g_driver.internal_agmt.acc.axes.y;
+        g_driver.user_dev.agmt.acc.z = g_driver.internal_agmt.acc.axes.z;
+        g_driver.user_dev.agmt.gyr.x = g_driver.internal_agmt.gyr.axes.x;
+        g_driver.user_dev.agmt.gyr.y = g_driver.internal_agmt.gyr.axes.y;
+        g_driver.user_dev.agmt.gyr.z = g_driver.internal_agmt.gyr.axes.z;
+        g_driver.user_dev.agmt.mag.x = g_driver.internal_agmt.mag.axes.x;
+        g_driver.user_dev.agmt.mag.y = g_driver.internal_agmt.mag.axes.y;
+        g_driver.user_dev.agmt.mag.z = g_driver.internal_agmt.mag.axes.z;
+    }
+    return retval;
 }
 float icm209_get_temp(void)
 {
-    return getTempC(g_driver.user_dev.agmt.tmp.val);
+    return getTempC(g_driver.internal_agmt.tmp.val);
 }
 float icm209_get_mag(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.user_dev.agmt.mag.axes.x,
-                           g_driver.user_dev.agmt.mag.axes.y,
-                           g_driver.user_dev.agmt.mag.axes.z };
+    int16_t axis_val[] = { g_driver.internal_agmt.mag.axes.x,
+                           g_driver.internal_agmt.mag.axes.y,
+                           g_driver.internal_agmt.mag.axes.z };
     return getMagUT(axis_val[axis]);
 }
 float icm209_get_gyro(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.user_dev.agmt.gyr.axes.x,
-                           g_driver.user_dev.agmt.gyr.axes.y,
-                           g_driver.user_dev.agmt.gyr.axes.z };
-    return getGyrDPS(&g_driver.user_dev.agmt, axis_val[axis]);
+    int16_t axis_val[] = { g_driver.internal_agmt.gyr.axes.x,
+                           g_driver.internal_agmt.gyr.axes.y,
+                           g_driver.internal_agmt.gyr.axes.z };
+    return getGyrDPS(&g_driver.internal_agmt, axis_val[axis]);
 }
 float icm209_get_acc(uint8_t axis)
 {
-    int16_t axis_val[] = { g_driver.user_dev.agmt.acc.axes.x,
-                           g_driver.user_dev.agmt.acc.axes.y,
-                           g_driver.user_dev.agmt.acc.axes.z };
-    return getAccMG(&g_driver.user_dev.agmt, axis_val[axis]);
+    int16_t axis_val[] = { g_driver.internal_agmt.acc.axes.x,
+                           g_driver.internal_agmt.acc.axes.y,
+                           g_driver.internal_agmt.acc.axes.z };
+    return getAccMG(&g_driver.internal_agmt, axis_val[axis]);
 }
 
 // Gyro Bias
 ICM_20948_Status_e icm209_setBiasGyro(uint8_t axis, int32_t newValue)
 {
     const uint32_t gyro_bias[] = { GYRO_BIAS_X, GYRO_BIAS_Y, GYRO_BIAS_Z };
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char gyro_bias_reg[4];
-        gyro_bias_reg[0] = (unsigned char)(newValue >> 24);
-        gyro_bias_reg[1] = (unsigned char)(newValue >> 16);
-        gyro_bias_reg[2] = (unsigned char)(newValue >> 8);
-        gyro_bias_reg[3] = (unsigned char)(newValue & 0xff);
-        ICM_20948_Status_e retval =
-          inv_icm20948_write_mems(&g_driver.internal_dev,
-                                  gyro_bias[axis],
-                                  4,
-                                  (const unsigned char*)&gyro_bias_reg);
+        gyro_bias_reg[0]          = (unsigned char)(newValue >> 24);
+        gyro_bias_reg[1]          = (unsigned char)(newValue >> 16);
+        gyro_bias_reg[2]          = (unsigned char)(newValue >> 8);
+        gyro_bias_reg[3]          = (unsigned char)(newValue & 0xff);
+        ICM_20948_Status_e retval = inv_icm20948_write_mems(&g_driver.internal_dev,
+                                                            gyro_bias[axis],
+                                                            4,
+                                                            (const unsigned char*)&gyro_bias_reg);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -129,26 +143,20 @@ ICM_20948_Status_e icm209_setBiasGyro(uint8_t axis, int32_t newValue)
 ICM_20948_Status_e icm209_getBiasGyro(uint8_t axis, int32_t* bias)
 {
     const uint32_t gyro_bias[] = { GYRO_BIAS_X, GYRO_BIAS_Y, GYRO_BIAS_Z };
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char      bias_data[4] = { 0 };
         ICM_20948_Status_e retval =
-          inv_icm20948_read_mems(&g_driver.internal_dev,
-                                 gyro_bias[axis],
-                                 4,
-                                 bias_data);
+          inv_icm20948_read_mems(&g_driver.internal_dev, gyro_bias[axis], 4, bias_data);
         union
         {
             int32_t  signed32;
             uint32_t unsigned32;
         } signedUnsigned32;
-        signedUnsigned32.unsigned32 =
-          (((uint32_t)bias_data[0]) << 24) | (((uint32_t)bias_data[1]) << 16)
-          | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
-        *bias =
-          signedUnsigned32
-            .signed32; // Convert from unsigned to signed with no cast ambiguity
+        signedUnsigned32.unsigned32 = (((uint32_t)bias_data[0]) << 24)
+                                      | (((uint32_t)bias_data[1]) << 16)
+                                      | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
+        *bias = signedUnsigned32.signed32; // Convert from unsigned to signed with no cast ambiguity
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -158,19 +166,17 @@ ICM_20948_Status_e icm209_getBiasGyro(uint8_t axis, int32_t* bias)
 ICM_20948_Status_e icm209_setBiasAccel(uint8_t axis, int32_t newValue)
 {
     const uint32_t acc_bias[] = { ACCEL_BIAS_X, ACCEL_BIAS_Y, ACCEL_BIAS_Z };
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char accel_bias_reg[4];
-        accel_bias_reg[0] = (unsigned char)(newValue >> 24);
-        accel_bias_reg[1] = (unsigned char)(newValue >> 16);
-        accel_bias_reg[2] = (unsigned char)(newValue >> 8);
-        accel_bias_reg[3] = (unsigned char)(newValue & 0xff);
-        ICM_20948_Status_e retval =
-          inv_icm20948_write_mems(&g_driver.internal_dev,
-                                  acc_bias[axis],
-                                  4,
-                                  (const unsigned char*)&accel_bias_reg);
+        accel_bias_reg[0]         = (unsigned char)(newValue >> 24);
+        accel_bias_reg[1]         = (unsigned char)(newValue >> 16);
+        accel_bias_reg[2]         = (unsigned char)(newValue >> 8);
+        accel_bias_reg[3]         = (unsigned char)(newValue & 0xff);
+        ICM_20948_Status_e retval = inv_icm20948_write_mems(&g_driver.internal_dev,
+                                                            acc_bias[axis],
+                                                            4,
+                                                            (const unsigned char*)&accel_bias_reg);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -178,26 +184,20 @@ ICM_20948_Status_e icm209_setBiasAccel(uint8_t axis, int32_t newValue)
 ICM_20948_Status_e icm209_getBiasAccel(uint8_t axis, int32_t* bias)
 {
     const uint32_t acc_bias[] = { ACCEL_BIAS_X, ACCEL_BIAS_Y, ACCEL_BIAS_Z };
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char      bias_data[4] = { 0 };
         ICM_20948_Status_e retval =
-          inv_icm20948_read_mems(&g_driver.internal_dev,
-                                 acc_bias[axis],
-                                 4,
-                                 bias_data);
+          inv_icm20948_read_mems(&g_driver.internal_dev, acc_bias[axis], 4, bias_data);
         union
         {
             int32_t  signed32;
             uint32_t unsigned32;
         } signedUnsigned32;
-        signedUnsigned32.unsigned32 =
-          (((uint32_t)bias_data[0]) << 24) | (((uint32_t)bias_data[1]) << 16)
-          | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
-        *bias =
-          signedUnsigned32
-            .signed32; // Convert from unsigned to signed with no cast ambiguity
+        signedUnsigned32.unsigned32 = (((uint32_t)bias_data[0]) << 24)
+                                      | (((uint32_t)bias_data[1]) << 16)
+                                      | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
+        *bias = signedUnsigned32.signed32; // Convert from unsigned to signed with no cast ambiguity
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -208,19 +208,17 @@ ICM_20948_Status_e icm209_setBiasCPass(uint8_t axis, int32_t newValue)
 {
     uint32_t cpass_bias[] = { CPASS_BIAS_X, CPASS_BIAS_Y, CPASS_BIAS_Z };
 
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char cpass_bias_reg[4];
-        cpass_bias_reg[0] = (unsigned char)(newValue >> 24);
-        cpass_bias_reg[1] = (unsigned char)(newValue >> 16);
-        cpass_bias_reg[2] = (unsigned char)(newValue >> 8);
-        cpass_bias_reg[3] = (unsigned char)(newValue & 0xff);
-        ICM_20948_Status_e retval =
-          inv_icm20948_write_mems(&g_driver.internal_dev,
-                                  cpass_bias[axis],
-                                  4,
-                                  (const unsigned char*)&cpass_bias_reg);
+        cpass_bias_reg[0]         = (unsigned char)(newValue >> 24);
+        cpass_bias_reg[1]         = (unsigned char)(newValue >> 16);
+        cpass_bias_reg[2]         = (unsigned char)(newValue >> 8);
+        cpass_bias_reg[3]         = (unsigned char)(newValue & 0xff);
+        ICM_20948_Status_e retval = inv_icm20948_write_mems(&g_driver.internal_dev,
+                                                            cpass_bias[axis],
+                                                            4,
+                                                            (const unsigned char*)&cpass_bias_reg);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -228,26 +226,20 @@ ICM_20948_Status_e icm209_setBiasCPass(uint8_t axis, int32_t newValue)
 ICM_20948_Status_e icm209_getBiasCPass(uint8_t axis, int32_t* bias)
 {
     uint32_t cpass_bias[] = { CPASS_BIAS_X, CPASS_BIAS_Y, CPASS_BIAS_Z };
-    if (g_driver.internal_dev._dmp_firmware_available
-        == true) // Is DMP supported?
+    if (g_driver.internal_dev._dmp_firmware_available == true) // Is DMP supported?
     {
         unsigned char      bias_data[4] = { 0 };
         ICM_20948_Status_e retval =
-          inv_icm20948_read_mems(&g_driver.internal_dev,
-                                 cpass_bias[axis],
-                                 4,
-                                 bias_data);
+          inv_icm20948_read_mems(&g_driver.internal_dev, cpass_bias[axis], 4, bias_data);
         union
         {
             int32_t  signed32;
             uint32_t unsigned32;
         } signedUnsigned32;
-        signedUnsigned32.unsigned32 =
-          (((uint32_t)bias_data[0]) << 24) | (((uint32_t)bias_data[1]) << 16)
-          | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
-        *bias =
-          signedUnsigned32
-            .signed32; // Convert from unsigned to signed with no cast ambiguity
+        signedUnsigned32.unsigned32 = (((uint32_t)bias_data[0]) << 24)
+                                      | (((uint32_t)bias_data[1]) << 16)
+                                      | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
+        *bias = signedUnsigned32.signed32; // Convert from unsigned to signed with no cast ambiguity
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -271,24 +263,21 @@ ICM_20948_Status_e icm209_low_power(bool on)
 }
 ICM_20948_Status_e icm209_set_clock_source(ICM_20948_PWR_MGMT_1_CLKSEL_e source)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_set_clock_source(&g_driver.internal_dev, source);
+    ICM_20948_Status_e retval = ICM_20948_set_clock_source(&g_driver.internal_dev, source);
     return retval;
 }
 
 // Internal Sensor Options
-ICM_20948_Status_e icm209_set_sample_mode(uint8_t sensor_id_bm,
-                                          uint8_t lp_config_cycle_mode)
+ICM_20948_Status_e icm209_set_sample_mode(uint8_t sensor_id_bm, uint8_t lp_config_cycle_mode)
 {
-    ICM_20948_Status_e retval = ICM_20948_set_sample_mode(
-      &g_driver.internal_dev,
-      (ICM_20948_InternalSensorID_bm)sensor_id_bm,
-      (ICM_20948_LP_CONFIG_CYCLE_e)lp_config_cycle_mode);
+    ICM_20948_Status_e retval =
+      ICM_20948_set_sample_mode(&g_driver.internal_dev,
+                                (ICM_20948_InternalSensorID_bm)sensor_id_bm,
+                                (ICM_20948_LP_CONFIG_CYCLE_e)lp_config_cycle_mode);
     ha_timer_hard_delay_ms(1);
     return retval;
 }
-ICM_20948_Status_e icm209_set_full_scale_range(uint8_t         sensor_id_bm,
-                                               ICM_20948_fss_t fss)
+ICM_20948_Status_e icm209_set_full_scale_range(uint8_t sensor_id_bm, ICM_20948_fss_t fss)
 {
     ICM_20948_Status_e retval =
       ICM_20948_set_full_scale(&g_driver.internal_dev,
@@ -296,30 +285,25 @@ ICM_20948_Status_e icm209_set_full_scale_range(uint8_t         sensor_id_bm,
                                fss);
     return retval;
 }
-ICM_20948_Status_e icm209_setDLPFcfg(uint8_t            sensor_id_bm,
-                                     ICM_20948_dlpcfg_t cfg)
+ICM_20948_Status_e icm209_setDLPFcfg(uint8_t sensor_id_bm, ICM_20948_dlpcfg_t cfg)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_set_dlpf_cfg(&g_driver.internal_dev,
-                             (ICM_20948_InternalSensorID_bm)sensor_id_bm,
-                             cfg);
+    ICM_20948_Status_e retval = ICM_20948_set_dlpf_cfg(&g_driver.internal_dev,
+                                                       (ICM_20948_InternalSensorID_bm)sensor_id_bm,
+                                                       cfg);
     return retval;
 }
 ICM_20948_Status_e icm209_init_cpass(void)
 {
     return startupMagnetometer(&g_driver.internal_dev, false);
 }
-ICM_20948_Status_e icm209_enable_low_pass_filter(uint8_t sensor_id_bm,
-                                                 bool    enable)
+ICM_20948_Status_e icm209_enable_low_pass_filter(uint8_t sensor_id_bm, bool enable)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_enable_dlpf(&g_driver.internal_dev,
-                            (ICM_20948_InternalSensorID_bm)sensor_id_bm,
-                            enable);
+    ICM_20948_Status_e retval = ICM_20948_enable_dlpf(&g_driver.internal_dev,
+                                                      (ICM_20948_InternalSensorID_bm)sensor_id_bm,
+                                                      enable);
     return retval;
 }
-ICM_20948_Status_e icm209_set_sample_rate(uint8_t            sensor_id_bm,
-                                          ICM_20948_smplrt_t smplrt)
+ICM_20948_Status_e icm209_set_sample_rate(uint8_t sensor_id_bm, ICM_20948_smplrt_t smplrt)
 {
     ICM_20948_Status_e retval =
       ICM_20948_set_sample_rate(&g_driver.internal_dev,
@@ -371,9 +355,8 @@ ICM_20948_Status_e icm209_cfgIntActiveLow(bool active_low)
     {
         return retval;
     }
-    reg.INT1_ACTL = active_low; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    reg.INT1_ACTL = active_low;                                                // set the setting
+    retval        = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -389,9 +372,8 @@ ICM_20948_Status_e icm209_cfgIntOpenDrain(bool open_drain)
     {
         return retval;
     }
-    reg.INT1_OPEN = open_drain; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    reg.INT1_OPEN = open_drain;                                                // set the setting
+    retval        = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -408,8 +390,7 @@ ICM_20948_Status_e icm209_cfgIntLatch(bool latching)
         return retval;
     }
     reg.INT1_LATCH_EN = latching; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    retval            = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -426,8 +407,7 @@ ICM_20948_Status_e icm209_cfgIntAnyReadToClear(bool enabled)
         return retval;
     }
     reg.INT_ANYRD_2CLEAR = enabled; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    retval               = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -443,9 +423,8 @@ ICM_20948_Status_e icm209_cfgFsyncActiveLow(bool active_low)
     {
         return retval;
     }
-    reg.ACTL_FSYNC = active_low; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    reg.ACTL_FSYNC = active_low;                                                // set the setting
+    retval         = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -461,9 +440,8 @@ ICM_20948_Status_e icm209_cfgFsyncIntMode(bool interrupt_mode)
     {
         return retval;
     }
-    reg.FSYNC_INT_MODE_EN = interrupt_mode; // set the setting
-    retval =
-      ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
+    reg.FSYNC_INT_MODE_EN = interrupt_mode;                             // set the setting
+    retval = ICM_20948_int_pin_cfg(&g_driver.internal_dev, &reg, NULL); // write phase
     if (retval != ICM_20948_Stat_Ok)
     {
         return retval;
@@ -480,8 +458,7 @@ ICM_20948_Status_e icm209_intEnableI2C(bool enable)
         return retval;
     }
     en.I2C_MST_INT_EN = enable; // change the setting
-    retval            = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval            = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -504,8 +481,7 @@ ICM_20948_Status_e icm209_intEnableDMP(bool enable)
         return retval;
     }
     en.DMP_INT1_EN = enable; // change the setting
-    retval         = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval         = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -528,8 +504,7 @@ ICM_20948_Status_e icm209_intEnablePLL(bool enable)
         return retval;
     }
     en.PLL_RDY_EN = enable; // change the setting
-    retval        = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval        = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -552,8 +527,7 @@ ICM_20948_Status_e icm209_intEnableWOF(bool enable)
         return retval;
     }
     en.REG_WOF_EN = enable; // change the setting
-    retval        = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval        = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -576,8 +550,7 @@ ICM_20948_Status_e icm209_intEnableRawDataReady(bool enable)
         return retval;
     }
     en.RAW_DATA_0_RDY_EN = enable; // change the setting
-    retval               = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval               = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -604,8 +577,7 @@ ICM_20948_Status_e icm209_intEnableOverflowFIFO(uint8_t bm_enable)
     en.FIFO_OVERFLOW_EN_2 = ((bm_enable >> 2) & 0x01);
     en.FIFO_OVERFLOW_EN_3 = ((bm_enable >> 3) & 0x01);
     en.FIFO_OVERFLOW_EN_4 = ((bm_enable >> 4) & 0x01);
-    retval                = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval                = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -627,8 +599,7 @@ ICM_20948_Status_e icm209_intEnableWatermarkFIFO(uint8_t bm_enable)
     en.FIFO_WM_EN_2 = ((bm_enable >> 2) & 0x01);
     en.FIFO_WM_EN_3 = ((bm_enable >> 3) & 0x01);
     en.FIFO_WM_EN_4 = ((bm_enable >> 4) & 0x01);
-    retval          = ICM_20948_int_enable(&g_driver.internal_dev,
-                                  &en,
+    retval          = ICM_20948_int_enable(&g_driver.internal_dev, &en,
                                   &en); // write phase w/ readback
     if (retval != ICM_20948_Stat_Ok)
     {
@@ -640,8 +611,7 @@ ICM_20948_Status_e icm209_intEnableWatermarkFIFO(uint8_t bm_enable)
 // FIFO settings
 ICM_20948_Status_e icm209_enableFIFO(bool enable)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_enable_FIFO(&g_driver.internal_dev, enable);
+    ICM_20948_Status_e retval = ICM_20948_enable_FIFO(&g_driver.internal_dev, enable);
     return retval;
 }
 ICM_20948_Status_e icm209_resetFIFO(void)
@@ -652,20 +622,17 @@ ICM_20948_Status_e icm209_resetFIFO(void)
 ICM_20948_Status_e icm209_setFIFOmode(bool snapshot)
 {
     // Default to Stream (non-Snapshot) mode
-    ICM_20948_Status_e retval =
-      ICM_20948_set_FIFO_mode(&g_driver.internal_dev, snapshot);
+    ICM_20948_Status_e retval = ICM_20948_set_FIFO_mode(&g_driver.internal_dev, snapshot);
     return retval;
 }
 ICM_20948_Status_e icm209_getFIFOcount(uint16_t* count)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_get_FIFO_count(&g_driver.internal_dev, count);
+    ICM_20948_Status_e retval = ICM_20948_get_FIFO_count(&g_driver.internal_dev, count);
     return retval;
 }
 ICM_20948_Status_e icm209_readFIFO(uint8_t* data, uint8_t len)
 {
-    ICM_20948_Status_e retval =
-      ICM_20948_read_FIFO(&g_driver.internal_dev, data, len);
+    ICM_20948_Status_e retval = ICM_20948_read_FIFO(&g_driver.internal_dev, data, len);
     return retval;
 }
 
@@ -675,52 +642,41 @@ ICM_20948_Status_e icm209_resetDMP(void)
     ICM_20948_Status_e retval = ICM_20948_reset_DMP(&g_driver.internal_dev);
     return retval;
 }
-ICM_20948_Status_e icm209_enableDMPSensor(enum inv_icm20948_sensor sensor,
-                                          bool                     enable)
+ICM_20948_Status_e icm209_enableDMPSensor(enum inv_icm20948_sensor sensor, bool enable)
 {
     if (g_driver.internal_dev._dmp_firmware_available
         == true) // Should we attempt to enable the sensor?
     {
         ICM_20948_Status_e retval =
-          inv_icm20948_enable_dmp_sensor(&g_driver.internal_dev,
-                                         sensor,
-                                         enable == true ? 1 : 0);
+          inv_icm20948_enable_dmp_sensor(&g_driver.internal_dev, sensor, enable == true ? 1 : 0);
         LOG_DEBUG_P1("icm209_enableDMPSensor:  _enabled_Android_0: %d\n",
                      (int)g_driver.internal_dev._enabled_Android_0);
-        LOG_EXTEND_P1("  _enabled_Android_1: %d\n",
-                      (int)g_driver.internal_dev._enabled_Android_1);
-        LOG_EXTEND_P1("  _dataOutCtl1: %d\n",
-                      (int)g_driver.internal_dev._dataOutCtl1);
-        LOG_EXTEND_P1("  _dataOutCtl2: %d\n",
-                      (int)g_driver.internal_dev._dataOutCtl2);
-        LOG_EXTEND_P1("  _dataRdyStatus: %d\n",
-                      (int)g_driver.internal_dev._dataRdyStatus);
+        LOG_EXTEND_P1("  _enabled_Android_1: %d\n", (int)g_driver.internal_dev._enabled_Android_1);
+        LOG_EXTEND_P1("  _dataOutCtl1: %d\n", (int)g_driver.internal_dev._dataOutCtl1);
+        LOG_EXTEND_P1("  _dataOutCtl2: %d\n", (int)g_driver.internal_dev._dataOutCtl2);
+        LOG_EXTEND_P1("  _dataRdyStatus: %d\n", (int)g_driver.internal_dev._dataRdyStatus);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
 }
-ICM_20948_Status_e icm209_enableDMPSensorInt(enum inv_icm20948_sensor sensor,
-                                             bool                     enable)
+ICM_20948_Status_e icm209_enableDMPSensorInt(enum inv_icm20948_sensor sensor, bool enable)
 {
     if (g_driver.internal_dev._dmp_firmware_available
         == true) // Should we attempt to enable the sensor interrupt?
     {
-        ICM_20948_Status_e retval =
-          inv_icm20948_enable_dmp_sensor_int(&g_driver.internal_dev,
-                                             sensor,
-                                             enable == true ? 1 : 0);
+        ICM_20948_Status_e retval = inv_icm20948_enable_dmp_sensor_int(&g_driver.internal_dev,
+                                                                       sensor,
+                                                                       enable == true ? 1 : 0);
         LOG_DEBUG_P1("icm209_enableDMPSensorInt:  _enabled_Android_intr_0: %d",
                      (int)g_driver.internal_dev._enabled_Android_intr_0);
         LOG_EXTEND_P1("  _enabled_Android_intr_1: %d\n",
                       (int)g_driver.internal_dev._enabled_Android_intr_1);
-        LOG_EXTEND_P1("  _dataIntrCtl: %d\n",
-                      (int)g_driver.internal_dev._dataIntrCtl);
+        LOG_EXTEND_P1("  _dataIntrCtl: %d\n", (int)g_driver.internal_dev._dataIntrCtl);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
 }
-ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg,
-                                        int                    interval)
+ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg, int interval)
 {
     if (g_driver.internal_dev._dmp_firmware_available
         == true) // Should we attempt to set the DMP ODR?
@@ -731,9 +687,7 @@ ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg,
         // ) - 1 E.g. For a 25Hz ODR rate, value= (225/25) - 1 = 8.
 
         ICM_20948_Status_e retval =
-          inv_icm20948_set_dmp_sensor_period(&g_driver.internal_dev,
-                                             odr_reg,
-                                             interval);
+          inv_icm20948_set_dmp_sensor_period(&g_driver.internal_dev, odr_reg, interval);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -743,8 +697,7 @@ ICM_20948_Status_e icm209_readDMPdataFromFIFO(icm_20948_DMP_data_t* data)
     if (g_driver.internal_dev._dmp_firmware_available
         == true) // Should we attempt to set the data from the FIFO?
     {
-        ICM_20948_Status_e retval =
-          inv_icm20948_read_dmp_data(&g_driver.internal_dev, data);
+        ICM_20948_Status_e retval = inv_icm20948_read_dmp_data(&g_driver.internal_dev, data);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -755,8 +708,7 @@ ICM_20948_Status_e icm209_enableDMP(bool enable)
     if (g_driver.internal_dev._dmp_firmware_available
         == true) // Should we attempt to enable the DMP?
     {
-        retval =
-          ICM_20948_enable_DMP(&g_driver.internal_dev, enable == true ? 1 : 0);
+        retval = ICM_20948_enable_DMP(&g_driver.internal_dev, enable == true ? 1 : 0);
         return retval;
     }
     return ICM_20948_Stat_DMPNotSupported;
@@ -782,9 +734,8 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // through the configuration sequence from InvenSense's _confidential_
     // Application Note "Programming Sequence for DMP Hardware Functions".
 
-    ICM_20948_Status_e result =
-      ICM_20948_Stat_Ok; // Use result and worstResult to show if the
-                         // configuration was successful
+    ICM_20948_Status_e result = ICM_20948_Stat_Ok; // Use result and worstResult to show if the
+                                                   // configuration was successful
 
     // Normally, when the DMP is not enabled, startupMagnetometer (called by
     // startupDefault, which is called by begin) configures the AK09916
@@ -817,18 +768,17 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // to show the register pairing starts at byte 1+2 (copied from
     // inv_icm20948_resume_akm) true: set the I2C_SLV0_CTRL I2C_SLV0_BYTE_SW to
     // byte-swap the data from the mag (copied from inv_icm20948_resume_akm)
-    result =
-      ICM_20948_i2c_controller_configure_peripheral(&g_driver.internal_dev,
-                                                    0,
-                                                    MAG_AK09916_I2C_ADDR,
-                                                    AK09916_REG_RSV2,
-                                                    10,
-                                                    true,
-                                                    true,
-                                                    false,
-                                                    true,
-                                                    true,
-                                                    0);
+    result = ICM_20948_i2c_controller_configure_peripheral(&g_driver.internal_dev,
+                                                           0,
+                                                           MAG_AK09916_I2C_ADDR,
+                                                           AK09916_REG_RSV2,
+                                                           10,
+                                                           true,
+                                                           true,
+                                                           false,
+                                                           true,
+                                                           true,
+                                                           0);
     if (result > worstResult)
     {
         worstResult = result;
@@ -846,18 +796,17 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // I2C_SLV0_GRP bit false: clear the I2C_SLV0_CTRL I2C_SLV0_BYTE_SW bit
     // AK09916_mode_single: tell I2C_SLV1 to write the Single Measurement
     // command each sample
-    result =
-      ICM_20948_i2c_controller_configure_peripheral(&g_driver.internal_dev,
-                                                    1,
-                                                    MAG_AK09916_I2C_ADDR,
-                                                    M_REG_CNTL2,
-                                                    1,
-                                                    false,
-                                                    true,
-                                                    false,
-                                                    false,
-                                                    false,
-                                                    AK09916_mode_single);
+    result = ICM_20948_i2c_controller_configure_peripheral(&g_driver.internal_dev,
+                                                           1,
+                                                           MAG_AK09916_I2C_ADDR,
+                                                           M_REG_CNTL2,
+                                                           1,
+                                                           false,
+                                                           true,
+                                                           false,
+                                                           false,
+                                                           false,
+                                                           AK09916_mode_single);
     if (result > worstResult)
     {
         worstResult = result;
@@ -881,16 +830,11 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     {
         worstResult = result; // Select Bank 3
     }
-    uint8_t mstODRconfig =
-      0x04; // Set the ODR configuration to 1100/2^4 = 68.75Hz
-    result = write(&g_driver.internal_dev,
-                   AGB3_REG_I2C_MST_ODR_CONFIG,
-                   &mstODRconfig,
-                   1);
+    uint8_t mstODRconfig = 0x04; // Set the ODR configuration to 1100/2^4 = 68.75Hz
+    result = write(&g_driver.internal_dev, AGB3_REG_I2C_MST_ODR_CONFIG, &mstODRconfig, 1);
     if (result > worstResult)
     {
-        worstResult =
-          result; // Write one byte to the I2C_MST_ODR_CONFIG register
+        worstResult = result; // Write one byte to the I2C_MST_ODR_CONFIG register
     }
 
     // Configure clock source through PWR_MGMT_1
@@ -911,9 +855,8 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     {
         worstResult = result; // Select Bank 0
     }
-    uint8_t pwrMgmt2 =
-      0x40; // Set the reserved bit 6 (pressure sensor disable?)
-    result = write(&g_driver.internal_dev, AGB0_REG_PWR_MGMT_2, &pwrMgmt2, 1);
+    uint8_t pwrMgmt2 = 0x40; // Set the reserved bit 6 (pressure sensor disable?)
+    result           = write(&g_driver.internal_dev, AGB0_REG_PWR_MGMT_2, &pwrMgmt2, 1);
     if (result > worstResult)
     {
         worstResult = result; // Write one byte to the PWR_MGMT_2 register
@@ -923,8 +866,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // The InvenSense Nucleo example initially puts the accel and gyro into low
     // power mode too, but then later updates LP_CONFIG so only the I2C_Master
     // is in Low Power Mode
-    result = icm209_set_sample_mode(ICM_20948_Internal_Mst,
-                                    ICM_20948_Sample_Mode_Cycled);
+    result = icm209_set_sample_mode(ICM_20948_Internal_Mst, ICM_20948_Sample_Mode_Cycled);
     if (result > worstResult)
     {
         worstResult = result;
@@ -958,9 +900,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
                            // dps500
                            // dps1000
                            // dps2000
-    result = icm209_set_full_scale_range(
-      (ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr),
-      myFSS);
+    result = icm209_set_full_scale_range((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), myFSS);
     if (result > worstResult)
     {
         worstResult = result;
@@ -971,9 +911,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // the SPI data generated by ZaneL's Teensy-ICM-20948 library byte by
     // byte... The gyro DLPF is enabled by default (GYRO_CONFIG_1 = 0x01) so the
     // following line should have no effect, but we'll include it anyway
-    result = ICM_20948_enable_dlpf(&g_driver.internal_dev,
-                                   ICM_20948_Internal_Gyr,
-                                   true);
+    result = ICM_20948_enable_dlpf(&g_driver.internal_dev, ICM_20948_Internal_Gyr, true);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1023,19 +961,15 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // Set gyro sample rate divider with GYRO_SMPLRT_DIV
     // Set accel sample rate divider with ACCEL_SMPLRT_DIV_2
     ICM_20948_smplrt_t mySmplrt;
-    mySmplrt.g =
-      19; // ODR is computed as follows: 1.1 kHz/(1+GYRO_SMPLRT_DIV[7:0]). 19 =
-          // 55Hz. InvenSense Nucleo example uses 19 (0x13).
-    mySmplrt.a =
-      19; // ODR is computed as follows: 1.125 kHz/(1+ACCEL_SMPLRT_DIV[11:0]).
-          // 19 = 56.25Hz. InvenSense Nucleo example uses 19 (0x13).
+    mySmplrt.g = 19; // ODR is computed as follows: 1.1 kHz/(1+GYRO_SMPLRT_DIV[7:0]). 19 =
+                     // 55Hz. InvenSense Nucleo example uses 19 (0x13).
+    mySmplrt.a = 19; // ODR is computed as follows: 1.125 kHz/(1+ACCEL_SMPLRT_DIV[11:0]).
+                     // 19 = 56.25Hz. InvenSense Nucleo example uses 19 (0x13).
     // mySmplrt.g = 4; // 225Hz
     // mySmplrt.a = 4; // 225Hz
     // mySmplrt.g = 8; // 112Hz
     // mySmplrt.a = 8; // 112Hz
-    result =
-      icm209_set_sample_rate((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr),
-                             mySmplrt);
+    result = icm209_set_sample_rate((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), mySmplrt);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1070,7 +1004,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
         worstResult = result; // Select Bank 0
     }
     uint8_t fix = 0x48;
-    result = write(&g_driver.internal_dev, AGB0_REG_HW_FIX_DISABLE, &fix, 1);
+    result      = write(&g_driver.internal_dev, AGB0_REG_HW_FIX_DISABLE, &fix, 1);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1083,10 +1017,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
         worstResult = result; // Select Bank 0
     }
     uint8_t fifoPrio = 0xE4;
-    result           = write(&g_driver.internal_dev,
-                   AGB0_REG_SINGLE_FIFO_PRIORITY_SEL,
-                   &fifoPrio,
-                   1);
+    result = write(&g_driver.internal_dev, AGB0_REG_SINGLE_FIFO_PRIORITY_SEL, &fifoPrio, 1);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1134,74 +1065,47 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
         0x66,
         0x67
     }; // Value taken from InvenSense Nucleo example
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_00,
-                          4,
-                          &mountMultiplierPlus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_00, 4, &mountMultiplierPlus[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_01,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_01, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_02,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_02, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_10,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_10, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_11,
-                          4,
-                          &mountMultiplierMinus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_11, 4, &mountMultiplierMinus[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_12,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_12, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_20,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_20, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_21,
-                          4,
-                          &mountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_21, 4, &mountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_MTX_22,
-                          4,
-                          &mountMultiplierMinus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_MTX_22, 4, &mountMultiplierMinus[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1215,74 +1119,47 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
         0x00,
         0x00
     }; // Value taken from InvenSense Nucleo example
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_00,
-                          4,
-                          &b2sMountMultiplierPlus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_00, 4, &b2sMountMultiplierPlus[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_01,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_01, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_02,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_02, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_10,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_10, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_11,
-                          4,
-                          &b2sMountMultiplierPlus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_11, 4, &b2sMountMultiplierPlus[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_12,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_12, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_20,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_20, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_21,
-                          4,
-                          &b2sMountMultiplierZero[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_21, 4, &b2sMountMultiplierZero[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
-    result = writeDMPmems(&g_driver.internal_dev,
-                          B2S_MTX_22,
-                          4,
-                          &b2sMountMultiplierPlus[0]);
+    result = writeDMPmems(&g_driver.internal_dev, B2S_MTX_22, 4, &b2sMountMultiplierPlus[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1304,14 +1181,8 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // 1000dps : 2^27
     //  500dps : 2^26
     //  250dps : 2^25
-    const unsigned char gyroFullScale[4] = { 0x10,
-                                             0x00,
-                                             0x00,
-                                             0x00 }; // 2000dps : 2^28
-    result                               = writeDMPmems(&g_driver.internal_dev,
-                          GYRO_FULLSCALE,
-                          4,
-                          &gyroFullScale[0]);
+    const unsigned char gyroFullScale[4] = { 0x10, 0x00, 0x00, 0x00 }; // 2000dps : 2^28
+    result = writeDMPmems(&g_driver.internal_dev, GYRO_FULLSCALE, 4, &gyroFullScale[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1322,10 +1193,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     const unsigned char accelOnlyGain[4] = { 0x03, 0xA4, 0x92, 0x49 }; // 56Hz
     // const unsigned char accelOnlyGain[4] = {0x00, 0xE8, 0xBA, 0x2E}; // 225Hz
     // const unsigned char accelOnlyGain[4] = {0x01, 0xD1, 0x74, 0x5D}; // 112Hz
-    result = writeDMPmems(&g_driver.internal_dev,
-                          ACCEL_ONLY_GAIN,
-                          4,
-                          &accelOnlyGain[0]);
+    result = writeDMPmems(&g_driver.internal_dev, ACCEL_ONLY_GAIN, 4, &accelOnlyGain[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1336,10 +1204,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     const unsigned char accelAlphaVar[4] = { 0x34, 0x92, 0x49, 0x25 }; // 56Hz
     // const unsigned char accelAlphaVar[4] = {0x3D, 0x27, 0xD2, 0x7D}; // 225Hz
     // const unsigned char accelAlphaVar[4] = {0x3A, 0x49, 0x24, 0x92}; // 112Hz
-    result = writeDMPmems(&g_driver.internal_dev,
-                          ACCEL_ALPHA_VAR,
-                          4,
-                          &accelAlphaVar[0]);
+    result = writeDMPmems(&g_driver.internal_dev, ACCEL_ALPHA_VAR, 4, &accelAlphaVar[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1350,20 +1215,16 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     const unsigned char accelAVar[4] = { 0x0B, 0x6D, 0xB6, 0xDB }; // 56Hz
     // const unsigned char accelAVar[4] = {0x02, 0xD8, 0x2D, 0x83}; // 225Hz
     // const unsigned char accelAVar[4] = {0x05, 0xB6, 0xDB, 0x6E}; // 112Hz
-    result =
-      writeDMPmems(&g_driver.internal_dev, ACCEL_A_VAR, 4, &accelAVar[0]);
+    result = writeDMPmems(&g_driver.internal_dev, ACCEL_A_VAR, 4, &accelAVar[0]);
     if (result > worstResult)
     {
         worstResult = result;
     }
 
     // Configure the Accel Cal Rate
-    const unsigned char accelCalRate[4] = {
-        0x00,
-        0x00
-    }; // Value taken from InvenSense Nucleo example
-    result =
-      writeDMPmems(&g_driver.internal_dev, ACCEL_CAL_RATE, 2, &accelCalRate[0]);
+    const unsigned char accelCalRate[4] = { 0x00,
+                                            0x00 }; // Value taken from InvenSense Nucleo example
+    result = writeDMPmems(&g_driver.internal_dev, ACCEL_CAL_RATE, 2, &accelCalRate[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1373,10 +1234,7 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
     // above) sets the magnetometer read rate to 68.75Hz. Let's set the Compass
     // Time Buffer to 69 (Hz).
     const unsigned char compassRate[2] = { 0x00, 0x45 }; // 69Hz
-    result                             = writeDMPmems(&g_driver.internal_dev,
-                          CPASS_TIME_BUFFER,
-                          2,
-                          &compassRate[0]);
+    result = writeDMPmems(&g_driver.internal_dev, CPASS_TIME_BUFFER, 2, &compassRate[0]);
     if (result > worstResult)
     {
         worstResult = result;
@@ -1396,12 +1254,12 @@ ICM_20948_Status_e icm209_initialize_dmp(void)
 
 bool icm209_is_data_ready(void)
 {
-  ICM_20948_Status_e status = ICM_20948_data_ready(&g_driver.internal_dev);
-  if (status == ICM_20948_Stat_Ok)
-  {
-    return true;
-  }
-  return false;
+    ICM_20948_Status_e status = ICM_20948_data_ready(&g_driver.internal_dev);
+    if (status == ICM_20948_Stat_Ok)
+    {
+        return true;
+    }
+    return false;
 }
 ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev)
 {
@@ -1413,25 +1271,20 @@ ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev)
     // Set up the serif
     g_driver.serif_hndlr.write = write_register;
     g_driver.serif_hndlr.read  = read_register;
-    g_driver.serif_hndlr.user =
-      (void*)&g_driver.user_dev; // refer to yourself in the user field
+    g_driver.serif_hndlr.user  = (void*)&g_driver.user_dev; // refer to yourself in the user field
 
     // Link the serif
     g_driver.internal_dev._serif = &g_driver.serif_hndlr;
 
 #if defined(ICM_20948_USE_DMP)
-    g_driver.internal_dev._dmp_firmware_available =
-      true; // Initialize _dmp_firmware_available
+    g_driver.internal_dev._dmp_firmware_available = true; // Initialize _dmp_firmware_available
 #else
-    g_driver.internal_dev._dmp_firmware_available =
-      false; // Initialize _dmp_firmware_available
+    g_driver.internal_dev._dmp_firmware_available = false; // Initialize _dmp_firmware_available
 #endif
 
-    g_driver.internal_dev._firmware_loaded =
-      false; // Initialize _firmware_loaded
-    g_driver.internal_dev._last_bank =
-      255; // Initialize _last_bank. Make it invalid. It will be set by the
-           // first call of ICM_20948_set_bank.
+    g_driver.internal_dev._firmware_loaded = false; // Initialize _firmware_loaded
+    g_driver.internal_dev._last_bank = 255; // Initialize _last_bank. Make it invalid. It will be
+                                            // set by the first call of ICM_20948_set_bank.
     g_driver.internal_dev._last_mems_bank =
       255; // Initialize _last_mems_bank. Make it invalid. It will be set by the
            // first call of inv_icm20948_write_mems.
@@ -1450,8 +1303,7 @@ ICM_20948_Status_e icm209_init(icm209_dev_t** ppt_dev)
     // Perform default startup
     // Do a minimal startupDefault if using the DMP. User can always call
     // startupDefault(false) manually if required.
-    retval = startupDefault(&g_driver.internal_dev,
-                            g_driver.internal_dev._dmp_firmware_available);
+    retval = startupDefault(&g_driver.internal_dev, g_driver.internal_dev._dmp_firmware_available);
     if (retval != ICM_20948_Stat_Ok)
     {
         LOG_DEBUG("ICM_20948_I2C::begin: startupDefault returned: ");

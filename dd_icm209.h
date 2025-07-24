@@ -5,10 +5,26 @@
 
 typedef struct
 {
-  icm_20948_DMP_data_t dmp_data;
-  ICM_20948_AGMT_t   agmt;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+} motion_sensor_t;
+
+typedef struct
+{
+    motion_sensor_t acc;
+    motion_sensor_t gyr;
+    motion_sensor_t mag;
+    int16_t         temp;
+} icm209_agmt;
+
+typedef struct
+{
+    icm_20948_DMP_data_t dmp_data;
+    icm209_agmt          agmt;
 } icm209_dev_t;
-ICM_20948_Status_e icm209_getAGMT(void);
+
+ICM_20948_Status_e icm209_readAGMT(void);
 float              icm209_get_temp(void);
 float              icm209_get_mag(uint8_t axis);
 float              icm209_get_gyro(uint8_t axis);
@@ -22,18 +38,12 @@ ICM_20948_Status_e icm209_getBiasCPass(uint8_t axis, int32_t* bias);
 ICM_20948_Status_e icm209_reset(void);
 ICM_20948_Status_e icm209_sleep(bool on);
 ICM_20948_Status_e icm209_low_power(bool on);
-ICM_20948_Status_e icm209_set_clock_source(
-  ICM_20948_PWR_MGMT_1_CLKSEL_e source);
-ICM_20948_Status_e icm209_set_sample_mode(uint8_t sensor_id_bm,
-                                          uint8_t lp_config_cycle_mode);
-ICM_20948_Status_e icm209_set_full_scale_range(uint8_t         sensor_id_bm,
-                                               ICM_20948_fss_t fss);
-ICM_20948_Status_e icm209_setDLPFcfg(uint8_t            sensor_id_bm,
-                                     ICM_20948_dlpcfg_t cfg);
-ICM_20948_Status_e icm209_enable_low_pass_filter(uint8_t sensor_id_bm,
-                                                 bool    enable);
-ICM_20948_Status_e icm209_set_sample_rate(uint8_t            sensor_id_bm,
-                                          ICM_20948_smplrt_t smplrt);
+ICM_20948_Status_e icm209_set_clock_source(ICM_20948_PWR_MGMT_1_CLKSEL_e source);
+ICM_20948_Status_e icm209_set_sample_mode(uint8_t sensor_id_bm, uint8_t lp_config_cycle_mode);
+ICM_20948_Status_e icm209_set_full_scale_range(uint8_t sensor_id_bm, ICM_20948_fss_t fss);
+ICM_20948_Status_e icm209_setDLPFcfg(uint8_t sensor_id_bm, ICM_20948_dlpcfg_t cfg);
+ICM_20948_Status_e icm209_enable_low_pass_filter(uint8_t sensor_id_bm, bool enable);
+ICM_20948_Status_e icm209_set_sample_rate(uint8_t sensor_id_bm, ICM_20948_smplrt_t smplrt);
 ICM_20948_Status_e icm209_clearInterrupts(void);
 ICM_20948_Status_e icm209_cfgIntActiveLow(bool active_low);
 ICM_20948_Status_e icm209_cfgIntOpenDrain(bool open_drain);
@@ -54,14 +64,11 @@ ICM_20948_Status_e icm209_setFIFOmode(bool snapshot);
 ICM_20948_Status_e icm209_getFIFOcount(uint16_t* count);
 ICM_20948_Status_e icm209_readFIFO(uint8_t* data, uint8_t len);
 ICM_20948_Status_e icm209_resetDMP(void);
-ICM_20948_Status_e icm209_enableDMPSensor(enum inv_icm20948_sensor sensor,
-                                          bool                     enable);
-ICM_20948_Status_e icm209_enableDMPSensorInt(enum inv_icm20948_sensor sensor,
-                                             bool                     enable);
-ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg,
-                                        int                    interval);
+ICM_20948_Status_e icm209_enableDMPSensor(enum inv_icm20948_sensor sensor, bool enable);
+ICM_20948_Status_e icm209_enableDMPSensorInt(enum inv_icm20948_sensor sensor, bool enable);
+ICM_20948_Status_e icm209_setDMPODRrate(enum DMP_ODR_Registers odr_reg, int interval);
 ICM_20948_Status_e icm209_readDMPdataFromFIFO(icm_20948_DMP_data_t* data);
-bool icm209_is_data_ready(void);
+bool               icm209_is_data_ready(void);
 ICM_20948_Status_e icm209_initialize_dmp(void);
 ICM_20948_Status_e icm209_enableDMP(bool enable);
 ICM_20948_Status_e icm209_init_cpass(void);
